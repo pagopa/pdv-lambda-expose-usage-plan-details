@@ -1,11 +1,11 @@
 from aws_lambda_powertools import Logger, Tracer
-from aws_lambda_powertools.event_handler import APIGatewayHttpResolver, Response
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 import boto3
 import os
 
 logger = Logger()
 tracer = Tracer()
-app = APIGatewayHttpResolver()
+app = APIGatewayRestResolver()
 
 AWS_REGION = os.getenv("AWS_REGION", "eu-south-1")
 
