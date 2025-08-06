@@ -19,15 +19,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
       - name: Create deployment package
         run: |
           mkdir -p dist
           cd src
-          zip -r ../dist/lambda-usage-plans.zip *.py
+          zip -r ../dist/lambda-expose-usage-plan-details.zip *.py
           cd ..
-          echo "Package created at dist/lambda-usage-plans.zip"
+          echo "Package created at dist/lambda-expose-usage-plan-details.zip"
 
       - name: Get version
         id: version
@@ -41,7 +41,7 @@ jobs:
           tag_name: v${{ steps.version.outputs.VERSION }}
           name: Release v${{ steps.version.outputs.VERSION }}
           files: |
-            dist/lambda-usage-plans.zip
+            dist/lambda-expose-usage-plan-details.zip
           draft: false
           prerelease: false
         env:
@@ -51,4 +51,4 @@ jobs:
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         with:
           name: lambda-function
-          path: dist/lambda-usage-plans.zip
+          path: dist/lambda-expose-usage-plan-details.zip

@@ -27,8 +27,8 @@ jobs:
         working-directory: src
         run: |
           mkdir -p dist
-          zip -r ./dist/lambda-usage-plans.zip *.py          
-          echo "Package created at dist/lambda-usage-plans.zip"
+          zip -r ./dist/lambda-expose-usage-plan-details.zip *.py          
+          echo "Package created at dist/lambda-expose-usage-plan-details.zip"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722
@@ -41,6 +41,6 @@ jobs:
         working-directory: src
         run: |
           aws lambda update-function-code \
-          --function-name ${{vars.LAMBDA_FUNCTION_NAME}} \
-          --zip-file fileb://dist/lambda-usage-plans.zip
+          --function-name ${{vars.LAMBDA_EXPOSE_USAGE_PLAN_DETAILS_FUNCTION_NAME}} \
+          --zip-file fileb://dist/lambda-expose-usage-plan-details.zip
           
