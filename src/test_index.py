@@ -33,26 +33,51 @@ def test_list_api_keys_direct(api_keys_response, rest_api_id):
             {"id": "123abc", "name": "Key 1"}
         ]}
 
-def test_validate_api_key_success_direct():
+def test_validate_api_key_success_direct(rest_api_id):
     with patch("index.apigateway") as mock_apigateway, \
+         patch("index.REST_API_ID", rest_api_id), \
          patch.object(index.app, "current_event", create=True) as mock_event:
-        mock_apigateway.get_api_key.return_value = {"value": "the-key-value"}
+        # The key belongs to the REST API and value matches
+        mock_apigateway.get_api_key.return_value = {
+            "stageKeys": [f"{rest_api_id}/stage"],
+            "value": "the-key-value"
+        }
         mock_event.json_body = {"api_key_id": "123abc", "api_key_value": "the-key-value"}
         response = index.validate_api_key()
         assert response.status_code == 200
         assert response.body == {"valid": True}
 
-def test_validate_api_key_invalid_value_direct():
+def test_validate_api_key_invalid_value_direct(rest_api_id):
     with patch("index.apigateway") as mock_apigateway, \
+         patch("index.REST_API_ID", rest_api_id), \
          patch.object(index.app, "current_event", create=True) as mock_event:
-        mock_apigateway.get_api_key.return_value = {"value": "the-key-value"}
+        # The key belongs to the REST API but value does not match
+        mock_apigateway.get_api_key.return_value = {
+            "stageKeys": [f"{rest_api_id}/stage"],
+            "value": "the-key-value"
+        }
         mock_event.json_body = {"api_key_id": "123abc", "api_key_value": "wrong-value"}
         response = index.validate_api_key()
         assert response.status_code == 200
         assert response.body == {"valid": False}
 
-def test_validate_api_key_not_found_direct():
+def test_validate_api_key_wrong_rest_api_direct(rest_api_id):
     with patch("index.apigateway") as mock_apigateway, \
+         patch("index.REST_API_ID", rest_api_id), \
+         patch.object(index.app, "current_event", create=True) as mock_event:
+        # The key does NOT belong to the REST API
+        mock_apigateway.get_api_key.return_value = {
+            "stageKeys": ["otherapi/stage"],
+            "value": "the-key-value"
+        }
+        mock_event.json_body = {"api_key_id": "123abc", "api_key_value": "the-key-value"}
+        response = index.validate_api_key()
+        assert response.status_code == 200
+        assert response.body == {"valid": False}
+
+def test_validate_api_key_not_found_direct(rest_api_id):
+    with patch("index.apigateway") as mock_apigateway, \
+         patch("index.REST_API_ID", rest_api_id), \
          patch.object(index.app, "current_event", create=True) as mock_event:
         class NotFoundException(Exception): pass
         mock_apigateway.get_api_key.side_effect = NotFoundException()
@@ -68,4 +93,4 @@ def test_validate_api_key_missing_params_direct():
         mock_event.json_body = {}
         response = index.validate_api_key()
         assert response.status_code == 400
-        assert "api_key_id and api_key_value are required"
+        assert "api_key_id and api_key_value are required" in response.body["error"]

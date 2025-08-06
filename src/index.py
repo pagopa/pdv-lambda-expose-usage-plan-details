@@ -43,8 +43,13 @@ def validate_api_key():
         )
     try:
         api_key = apigateway.get_api_key(apiKey=api_key_id, includeValue=True)
-        stored_value = api_key.get("value")
-        valid = stored_value == api_key_value
+        stage_keys = api_key.get("stageKeys", [])
+        # Only consider the key if it belongs to the specified REST API
+        if not any(sk.startswith(f"{REST_API_ID}/") for sk in stage_keys):
+            valid = False
+        else:
+            stored_value = api_key.get("value")
+            valid = stored_value == api_key_value
     except apigateway.exceptions.NotFoundException:
         valid = False
     return Response(
