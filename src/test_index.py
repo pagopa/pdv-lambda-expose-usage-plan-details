@@ -3,83 +3,118 @@ from unittest.mock import patch, MagicMock
 import index
 
 @pytest.fixture
-def api_keys_response():
+def usage_plans_response():
     return {
         "items": [
-            {"id": "123abc", "name": "Key 1"},
-            {"id": "456def", "name": "Key 2"}
+            {
+                "id": "plan1",
+                "apiStages": [{"apiId": "restapi123", "stage": "stage"}]
+            },
+            {
+                "id": "plan2",
+                "apiStages": [{"apiId": "otherapi", "stage": "stage"}]
+            }
         ]
     }
+
+@pytest.fixture
+def usage_plan_keys_response():
+    return {
+        "items": [
+            {"keyId": "123abc"},
+            {"keyId": "456def"}
+        ]
+    }
+
+@pytest.fixture
+def api_key_details():
+    def _details(apiKey, includeValue):
+        if apiKey == "123abc":
+            if includeValue:
+                return {"id": "123abc", "name": "Key 1", "value": "the-key-value"}
+            else:
+                return {"id": "123abc", "name": "Key 1"}
+        elif apiKey == "456def":
+            if includeValue:
+                return {"id": "456def", "name": "Key 2", "value": "the-key-value-2"}
+            else:
+                return {"id": "456def", "name": "Key 2"}
+        else:
+            return {}
+    return _details
 
 @pytest.fixture
 def rest_api_id():
     return "restapi123"
 
-def test_list_api_keys_direct(api_keys_response, rest_api_id):
+def test_list_api_keys_direct(usage_plans_response, usage_plan_keys_response, api_key_details, rest_api_id):
     with patch("index.apigateway") as mock_apigateway, patch("index.REST_API_ID", rest_api_id):
-        # Mock get_api_keys returns all keys
-        mock_apigateway.get_api_keys.return_value = api_keys_response
-        # Only "123abc" belongs to this REST API
-        def get_api_key_side_effect(apiKey, includeValue):
-            if apiKey == "123abc":
-                return {"stageKeys": [f"{rest_api_id}/stage"]}
+        mock_apigateway.get_usage_plans.return_value = usage_plans_response
+
+        # Only return keys for the relevant usage plan (plan1)
+        def usage_plan_keys_side_effect(usagePlanId, limit):
+            if usagePlanId == "plan1":
+                return usage_plan_keys_response
             else:
-                return {"stageKeys": ["otherapi/stage"]}
-        mock_apigateway.get_api_key.side_effect = get_api_key_side_effect
+                return {"items": []}
+        mock_apigateway.get_usage_plan_keys.side_effect = usage_plan_keys_side_effect
+
+        mock_apigateway.get_api_key.side_effect = api_key_details
 
         response = index.list_api_keys()
         assert response.status_code == 200
-        assert response.body == {"api_keys": [
-            {"id": "123abc", "name": "Key 1"}
-        ]}
+        assert response.body == {
+            "api_keys": [
+                {"id": "123abc", "name": "Key 1"},
+                {"id": "456def", "name": "Key 2"}
+            ]
+        }
 
-def test_validate_api_key_success_direct(rest_api_id):
+def test_validate_api_key_success_direct(usage_plans_response, usage_plan_keys_response, api_key_details, rest_api_id):
     with patch("index.apigateway") as mock_apigateway, \
          patch("index.REST_API_ID", rest_api_id), \
          patch.object(index.app, "current_event", create=True) as mock_event:
-        # The key belongs to the REST API and value matches
-        mock_apigateway.get_api_key.return_value = {
-            "stageKeys": [f"{rest_api_id}/stage"],
-            "value": "the-key-value"
-        }
+        # Setup mocks for usage plans and keys
+        mock_apigateway.get_usage_plans.return_value = usage_plans_response
+        mock_apigateway.get_usage_plan_keys.return_value = usage_plan_keys_response
+        mock_apigateway.get_api_key.side_effect = api_key_details
         mock_event.json_body = {"api_key_id": "123abc", "api_key_value": "the-key-value"}
         response = index.validate_api_key()
         assert response.status_code == 200
         assert response.body == {"valid": True}
 
-def test_validate_api_key_invalid_value_direct(rest_api_id):
+def test_validate_api_key_invalid_value_direct(usage_plans_response, usage_plan_keys_response, api_key_details, rest_api_id):
     with patch("index.apigateway") as mock_apigateway, \
          patch("index.REST_API_ID", rest_api_id), \
          patch.object(index.app, "current_event", create=True) as mock_event:
-        # The key belongs to the REST API but value does not match
-        mock_apigateway.get_api_key.return_value = {
-            "stageKeys": [f"{rest_api_id}/stage"],
-            "value": "the-key-value"
-        }
+        mock_apigateway.get_usage_plans.return_value = usage_plans_response
+        mock_apigateway.get_usage_plan_keys.return_value = usage_plan_keys_response
+        mock_apigateway.get_api_key.side_effect = api_key_details
         mock_event.json_body = {"api_key_id": "123abc", "api_key_value": "wrong-value"}
         response = index.validate_api_key()
         assert response.status_code == 200
         assert response.body == {"valid": False}
 
-def test_validate_api_key_wrong_rest_api_direct(rest_api_id):
+def test_validate_api_key_not_in_usage_plan(usage_plans_response, usage_plan_keys_response, api_key_details, rest_api_id):
     with patch("index.apigateway") as mock_apigateway, \
          patch("index.REST_API_ID", rest_api_id), \
          patch.object(index.app, "current_event", create=True) as mock_event:
-        # The key does NOT belong to the REST API
-        mock_apigateway.get_api_key.return_value = {
-            "stageKeys": ["otherapi/stage"],
-            "value": "the-key-value"
-        }
-        mock_event.json_body = {"api_key_id": "123abc", "api_key_value": "the-key-value"}
+        # Remove the key from usage_plan_keys_response
+        mock_apigateway.get_usage_plans.return_value = usage_plans_response
+        mock_apigateway.get_usage_plan_keys.return_value = {"items": []}
+        mock_apigateway.get_api_key.side_effect = api_key_details
+        mock_event.json_body = {"api_key_id": "not-in-plan", "api_key_value": "any"}
         response = index.validate_api_key()
         assert response.status_code == 200
         assert response.body == {"valid": False}
 
-def test_validate_api_key_not_found_direct(rest_api_id):
+def test_validate_api_key_not_found_direct(usage_plans_response, usage_plan_keys_response, rest_api_id):
     with patch("index.apigateway") as mock_apigateway, \
          patch("index.REST_API_ID", rest_api_id), \
          patch.object(index.app, "current_event", create=True) as mock_event:
         class NotFoundException(Exception): pass
+        mock_apigateway.get_usage_plans.return_value = usage_plans_response
+        mock_apigateway.get_usage_plan_keys.return_value = usage_plan_keys_response
         mock_apigateway.get_api_key.side_effect = NotFoundException()
         mock_apigateway.exceptions = MagicMock()
         mock_apigateway.exceptions.NotFoundException = NotFoundException
