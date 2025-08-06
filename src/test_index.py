@@ -21,8 +21,8 @@ def usage_plans_response():
 def usage_plan_keys_response():
     return {
         "items": [
-            {"keyId": "123abc"},
-            {"keyId": "456def"}
+            {"id": "123abc"},
+            {"id": "456def"}
         ]
     }
 

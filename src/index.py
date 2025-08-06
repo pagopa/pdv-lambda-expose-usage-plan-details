@@ -29,7 +29,7 @@ def list_api_keys():
     for plan_id in relevant_plan_ids:
         usage_plan_keys = apigateway.get_usage_plan_keys(usagePlanId=plan_id, limit=500)
         for item in usage_plan_keys.get("items", []):
-            api_key_ids.add(item["keyId"])
+            api_key_ids.add(item["id"])
 
     # 3. Fetch details for each API key
     api_keys = []
@@ -73,7 +73,7 @@ def validate_api_key():
         for plan_id in relevant_plan_ids:
             usage_plan_keys = apigateway.get_usage_plan_keys(usagePlanId=plan_id, limit=500)
             for item in usage_plan_keys.get("items", []):
-                if item["keyId"] == api_key_id:
+                if item["id"] == api_key_id:
                     found = True
                     break
             if found:
