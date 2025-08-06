@@ -7,11 +7,6 @@ AWS Lambda function to expose API Gateway API keys and validate API key values.
 
 - [Overview](#overview)
 - [Endpoints](#endpoints)
-- [Local Development](#local-development)
-- [Deployment](#deployment)
-- [Testing](#testing)
-- [Environment Variables](#environment-variables)
-- [License](#license)
 
 ## Overview
 
