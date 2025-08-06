@@ -8,6 +8,7 @@ tracer = Tracer()
 app = APIGatewayRestResolver()
 
 AWS_REGION = os.getenv("AWS_REGION", "eu-south-1")
+REST_API_ID = os.getenv("REST_API_ID")
 
 apigateway = boto3.client("apigateway", AWS_REGION)
 
@@ -15,14 +16,17 @@ apigateway = boto3.client("apigateway", AWS_REGION)
 @tracer.capture_method
 def list_api_keys():
     response = apigateway.get_api_keys(includeValues=False)
-    keys = [
-        {"id": key["id"], "name": key.get("name", "")}
-        for key in response.get("items", [])
-    ]
+    filtered_keys = []
+    for key in response.get("items", []):
+        api_key_details = apigateway.get_api_key(apiKey=key["id"], includeValue=False)
+        stage_keys = api_key_details.get("stageKeys", [])
+        # Each stageKey is in the format "restApiId/stage"
+        if any(sk.startswith(f"{REST_API_ID}/") for sk in stage_keys):
+            filtered_keys.append({"id": key["id"], "name": key.get("name", "")})
     return Response(
         status_code=200,
         content_type="application/json",
-        body={"api_keys": keys}
+        body={"api_keys": filtered_keys}
     )
 
 @app.post("/validate-api-key")
