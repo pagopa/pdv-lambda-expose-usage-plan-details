@@ -12,7 +12,7 @@ REST_API_ID = os.getenv("REST_API_ID")
 
 apigateway = boto3.client("apigateway", AWS_REGION)
 
-@app.get("/plan-details/api-keys")
+@app.get("/api-keys")
 @tracer.capture_method
 def list_api_keys():
     # 1. Get all usage plans
@@ -46,7 +46,7 @@ def list_api_keys():
         body={"api_keys": api_keys}
     )
 
-@app.post("/plan-details/validate-api-key")
+@app.post("/validate-api-key")
 @tracer.capture_method
 def validate_api_key():
     body = app.current_event.json_body
